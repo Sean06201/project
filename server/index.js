@@ -149,7 +149,8 @@ app.post('/api/auth/register', rateLimit('register', 8, 3600000), route((req, re
     return res.status(409).json({ error: '這個 Email 已經註冊' });
   }
   const inviteCode = String(req.body.admin_code || '');
-  const role = process.env.ADMIN_INVITE_CODE && inviteCode === process.env.ADMIN_INVITE_CODE ? 'admin' : 'user';
+  const hasAdmin = database.prepare("SELECT id FROM users WHERE role = 'admin'").get();
+  const role = process.env.ADMIN_INVITE_CODE && !hasAdmin && inviteCode === process.env.ADMIN_INVITE_CODE ? 'admin' : 'user';
   const result = database.prepare(`
     INSERT INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)
   `).run(email, displayName, hashPassword(password), role);
