@@ -102,7 +102,7 @@ export default {
 
     const fetchCourses = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/courses');
+        const res = await fetch('/api/courses');
         courses.value = await res.json();
       } catch (err) {
         console.error('無法取得課程資料:', err);
@@ -111,7 +111,7 @@ export default {
 
     const fetchNotes = async () => {
       try {
-        let url = 'http://localhost:3000/api/notes';
+        let url = '/api/notes';
         if (selectedCourse.value) {
           url += `?course_id=${selectedCourse.value}`;
         }
@@ -124,7 +124,7 @@ export default {
 
     const submitNote = async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/notes', {
+        const res = await fetch('/api/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newNote.value)
