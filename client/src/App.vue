@@ -123,6 +123,9 @@
       <section v-else-if="view === 'admin'" class="page-wrap">
         <div class="page-intro"><span class="eyebrow dark">ADMIN CONSOLE</span><h1>內容管理後台</h1><p>查看檢舉、隱藏內容並建立資料庫備份。</p></div>
         <div class="admin-toolbar"><button class="primary-button" @click="backupDatabase">建立今日備份</button><button class="outline-button" @click="loadAdmin">重新整理</button></div>
+        <h2 class="admin-section-title">全部筆記</h2>
+        <div class="panel table-wrap admin-notes-table"><table><thead><tr><th>標題</th><th>課程</th><th>分享者</th><th>狀態</th><th>操作</th></tr></thead><tbody><tr v-for="note in adminNotes" :key="`${note.status}-${note.id}`"><td>{{ note.title }}</td><td>{{ note.course_name }}</td><td>{{ note.contributor_name }}</td><td><span class="status-pill">{{ note.status }}</span></td><td><button @click="editNote(note)">編輯</button><button @click="toggleAdminNote(note)">{{ note.status === 'hidden' ? '重新公開' : '隱藏' }}</button><button class="danger-link" @click="deleteNote(note)">刪除</button></td></tr><tr v-if="!adminNotes.length"><td colspan="5">目前沒有筆記。</td></tr></tbody></table></div>
+        <h2 class="admin-section-title">檢舉紀錄</h2>
         <div class="panel table-wrap"><table><thead><tr><th>資源</th><th>檢舉者</th><th>原因</th><th>狀態</th><th>操作</th></tr></thead><tbody><tr v-for="report in reports" :key="report.id"><td>{{ report.note_title }}</td><td>{{ report.reporter }}</td><td>{{ report.reason }}</td><td><span class="status-pill">{{ report.status }}</span></td><td><button @click="hideReportedNote(report)">隱藏內容</button><button @click="resolveReport(report)">結案</button></td></tr><tr v-if="!reports.length"><td colspan="5">目前沒有檢舉。</td></tr></tbody></table></div>
       </section>
 
@@ -165,6 +168,7 @@ const flashcards = ref([])
 const flashForm = reactive({ course_id: '', front: '', back: '' })
 const flippedCards = ref(new Set())
 const reports = ref([])
+const adminNotes = ref([])
 
 async function api(url, options = {}) {
   const response = await fetch(url, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options })
@@ -226,14 +230,24 @@ async function reportNote(note) { const reason = window.prompt(`檢舉「${note.
 async function loadProfile() { if (!user.value) return; const data = await api('/api/profile'); Object.assign(profile, data); await loadProfileNotes(profileTab.value) }
 async function loadProfileNotes(tab) { profileTab.value = tab; const data = await api(`/api/notes?limit=24&${tab === 'mine' ? 'mine=1' : 'bookmarked=1'}`); profileNotes.value = data.items }
 function editNote(note) { Object.assign(noteForm, { course_id: note.course_id, title: note.title, semester: note.semester, type: note.type, link: note.link, description: note.description || '' }); editingId.value = note.id; go('share') }
-async function deleteNote(note) { if (!window.confirm(`確定刪除「${note.title}」？`)) return; await api(`/api/notes/${note.id}`, { method: 'DELETE' }); notify('資源已刪除'); loadProfile() }
+async function deleteNote(note) { if (!window.confirm(`確定刪除「${note.title}」？`)) return; await api(`/api/notes/${note.id}`, { method: 'DELETE' }); notify('資源已刪除'); view.value === 'admin' ? loadAdmin() : loadProfile() }
 
 async function loadFlashcards() { if (!user.value) return; flashcards.value = await api('/api/flashcards') }
 async function createFlashcard() { try { await api('/api/flashcards', { method: 'POST', body: JSON.stringify(flashForm) }); Object.assign(flashForm, { course_id: '', front: '', back: '' }); notify('卡片已新增'); loadFlashcards() } catch (error) { notify(error.message) } }
 function flip(id) { const next = new Set(flippedCards.value); next.has(id) ? next.delete(id) : next.add(id); flippedCards.value = next }
 async function deleteFlashcard(id) { await api(`/api/flashcards/${id}`, { method: 'DELETE' }); loadFlashcards() }
 
-async function loadAdmin() { if (user.value?.role !== 'admin') return; reports.value = await api('/api/admin/reports') }
+async function loadAdmin() {
+  if (user.value?.role !== 'admin') return
+  const [reportData, published, hidden] = await Promise.all([
+    api('/api/admin/reports'),
+    api('/api/notes?limit=24&status=published'),
+    api('/api/notes?limit=24&status=hidden')
+  ])
+  reports.value = reportData
+  adminNotes.value = [...published.items, ...hidden.items]
+}
+async function toggleAdminNote(note) { const status = note.status === 'hidden' ? 'published' : 'hidden'; await api(`/api/admin/notes/${note.id}`, { method: 'PATCH', body: JSON.stringify({ status }) }); notify(status === 'hidden' ? '內容已隱藏' : '內容已重新公開'); loadAdmin() }
 async function hideReportedNote(report) { await api(`/api/admin/notes/${report.note_id}`, { method: 'PATCH', body: JSON.stringify({ status: 'hidden' }) }); await resolveReport(report); notify('內容已隱藏') }
 async function resolveReport(report) { await api(`/api/admin/reports/${report.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved' }) }); loadAdmin() }
 async function backupDatabase() { const data = await api('/api/admin/backup', { method: 'POST' }); notify(`備份完成：${data.file}`) }
