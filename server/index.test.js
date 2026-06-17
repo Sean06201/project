@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const app = require('./index');
 
-test('serves the Vue app and API from the same public origin', async (t) => {
+test('registers the public, account and content-management routes', () => {
   const routes = app.router.stack
     .filter((layer) => layer.route)
     .map((layer) => layer.route.path);
@@ -12,6 +12,11 @@ test('serves the Vue app and API from the same public origin', async (t) => {
   assert.ok(routes.includes('/api/health'));
   assert.ok(routes.includes('/api/courses'));
   assert.ok(routes.includes('/api/notes'));
+  assert.ok(routes.includes('/api/auth/register'));
+  assert.ok(routes.includes('/api/auth/login'));
+  assert.ok(routes.includes('/api/profile'));
+  assert.ok(routes.includes('/api/flashcards'));
+  assert.ok(routes.includes('/api/admin/reports'));
   assert.ok(routes.includes('/{*splat}'));
 
   const indexHtml = fs.readFileSync(
@@ -19,4 +24,5 @@ test('serves the Vue app and API from the same public origin', async (t) => {
     'utf8'
   );
   assert.match(indexHtml, /<div id="app"><\/div>/);
+  assert.match(indexHtml, /NotesBuddy/);
 });

@@ -3,4 +3,6 @@ client/node_modules/
 client/dist/
 server/node_modules/
 server/public/
+server/backups/
+server/uploads/
 .DS_Store
